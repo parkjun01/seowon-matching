@@ -87,7 +87,7 @@ function refreshHome() {
     container.innerHTML = '<p class="home-names-empty">📋 버튼으로 명단을 불러오거나 + 버튼으로 추가하세요.</p>';
   } else {
     const reqHTML = reqPool.map(m =>
-      `<span class="name-chip">${esc(m.name)}</span>`
+      `<span class="name-chip name-chip-session">${esc(m.name)}<button class="chip-rm" onclick="removeParticipant('${m.id}')">✕</button></span>`
     ).join('');
     const optHTML = optPool.map(m =>
       `<span class="name-chip name-chip-session">${esc(m.name)}<button class="chip-rm" onclick="removeParticipant('${m.id}')">✕</button></span>`
@@ -103,11 +103,8 @@ function refreshHome() {
         `<span class="name-chip name-chip-session">${esc(v.name)}${v.requiresCar ? ' 🚗' : ''}<button class="chip-rm" onclick="hideVenueHome('${v.id}')">✕</button></span>`
       ).join('');
 }
-async function removeParticipant(id) {
-  const m = db.optionalMembers.find(x => x.id === id);
-  if (!m) return;
-  m.attending = false;
-  try { await _upsertMember(m); } catch(e) { m.attending = true; toast('저장 실패'); return; }
+function removeParticipant(id) {
+  sessionExcluded.add(id);
   refreshHome();
 }
 function openAddParticipant() {
@@ -118,11 +115,10 @@ function openAddParticipant() {
   ).join('');
   openModal('modal-add-participant');
 }
-async function addParticipant(id) {
+function addParticipant(id) {
   const m = db.optionalMembers.find(x => x.id === id);
   if (!m) return;
   m.attending = true;
-  try { await _upsertMember(m); } catch(e) { m.attending = false; toast('저장 실패'); return; }
   closeModal('modal-add-participant');
   refreshHome();
 }
@@ -131,9 +127,10 @@ function startMatching() {
   if (pool.length < 2) { toast('매칭 대상이 2명 이상이어야 합니다.'); return; }
   showPage('page-confirm');
 }
-function goHome() {
+async function goHome() {
   sessionExcluded.clear();
   sessionHiddenVenues.clear();
+  await loadDB();
   showPage('page-home');
 }
 function hideVenueHome(id) {
