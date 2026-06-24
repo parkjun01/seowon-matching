@@ -628,56 +628,67 @@ function startVenueBgm() {
 
     const master = ac.createGain();
     master.gain.setValueAtTime(0, ac.currentTime);
-    master.gain.linearRampToValueAtTime(0.6, ac.currentTime + 0.7);
+    master.gain.linearRampToValueAtTime(0.55, ac.currentTime + 0.5);
     master.connect(ac.destination);
 
-    // 에코로 공간감 추가
-    const echo = ac.createDelay(1.0);
-    echo.delayTime.value = 0.36;
-    const echoGain = ac.createGain();
-    echoGain.gain.value = 0.20;
-    echo.connect(echoGain);
-    echoGain.connect(echo);
-    echoGain.connect(master);
+    // 리버브 시뮬레이션
+    const rev = ac.createDelay(0.6);
+    rev.delayTime.value = 0.28;
+    const revGain = ac.createGain();
+    revGain.gain.value = 0.18;
+    rev.connect(revGain); revGain.connect(rev); revGain.connect(master);
 
     _venueBgm = { master, active: true };
 
-    // 피아노/셀레스타 음색: 사인파 배음 + 빠른 어택 + 긴 릴리즈
-    function playNote(freq, t, vol) {
+    // 피아노 음색: 빠른 어택 + 배음 + 긴 릴리즈
+    function note(freq, t, vol, dur) {
       const env = ac.createGain();
       env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(vol, t + 0.007);
-      env.gain.exponentialRampToValueAtTime(vol * 0.4, t + 0.09);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-      env.connect(master);
-      env.connect(echo);
-      [[1, 1.0], [2, 0.30], [4, 0.07]].forEach(([h, w]) => {
+      env.gain.linearRampToValueAtTime(vol, t + 0.006);
+      env.gain.exponentialRampToValueAtTime(vol * 0.38, t + 0.07);
+      env.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      env.connect(master); env.connect(rev);
+      [[1,1],[2,0.28],[3,0.08]].forEach(([h,w]) => {
         const o = ac.createOscillator(), g = ac.createGain();
-        g.gain.value = w; o.type = 'sine'; o.frequency.value = freq * h;
-        o.connect(g); g.connect(env); o.start(t); o.stop(t + 2.1);
+        o.type = 'sine'; o.frequency.value = freq * h; g.gain.value = w;
+        o.connect(g); g.connect(env); o.start(t); o.stop(t + dur + 0.1);
       });
     }
 
-    // Cmaj7 → Am7 → Fmaj7 → G7 아르페지오 (우아한 클래식 진행)
-    const chords = [
-      [523.25, 659.25, 783.99, 987.77],  // Cmaj7
-      [440.00, 523.25, 659.25, 783.99],  // Am7
-      [349.23, 440.00, 523.25, 659.25],  // Fmaj7
-      [392.00, 493.88, 587.33, 783.99],  // G7
+    // 친숙한 C장조 왈츠 멜로디 (도레미파솔라시도 느낌의 주선율 + 반주)
+    // 멜로디: C5-E5-G5-C6 / A4-C5-E5-A5 / F4-A4-C5-F5 / G4-B4-D5-G5 (각 1박)
+    // 베이스: 루트음 + 5도 화음
+    const bpm = 112;
+    const beat = 60 / bpm;
+
+    // [멜로디(freq, dur_beats), ...], [베이스(freq, dur_beats), ...]
+    const bars = [
+      { mel: [[523.25,1],[587.33,1],[659.25,1],[783.99,1],[659.25,1],[587.33,1]], bass: [[130.81,3],[196.00,3]] },
+      { mel: [[880.00,1],[783.99,1],[659.25,1],[523.25,1],[440.00,1],[392.00,1]], bass: [[110.00,3],[164.81,3]] },
+      { mel: [[349.23,1],[440.00,1],[523.25,1],[659.25,1],[523.25,1],[440.00,1]], bass: [[87.31,3],[130.81,3]] },
+      { mel: [[392.00,1],[493.88,1],[587.33,1],[783.99,2],[659.25,1]],           bass: [[98.00,3],[146.83,3]] },
     ];
-    const step = 0.30;
 
     function tick(t) {
       if (!_venueBgm?.active) return;
-      chords.forEach((chord, ci) => {
-        const base = t + ci * chord.length * step;
-        playNote(chord[0] / 2, base, 0.07); // 베이스음
-        chord.forEach((freq, ni) => playNote(freq, base + ni * step, 0.10));
+      let offset = 0;
+      bars.forEach(bar => {
+        let mOff = 0;
+        bar.mel.forEach(([f, d]) => {
+          note(f, t + offset + mOff * beat, 0.10, d * beat * 0.85);
+          mOff += d;
+        });
+        let bOff = 0;
+        bar.bass.forEach(([f, d]) => {
+          note(f, t + offset + bOff * beat, 0.07, d * beat * 0.7);
+          bOff += d;
+        });
+        offset += 6 * beat;
       });
-      const loopLen = chords.length * chords[0].length * step;
-      setTimeout(() => tick(t + loopLen), (loopLen - 0.2) * 1000);
+      const loopLen = bars.length * 6 * beat;
+      setTimeout(() => tick(t + loopLen), (loopLen - 0.15) * 1000);
     }
-    tick(ac.currentTime + 0.3);
+    tick(ac.currentTime + 0.25);
   } catch(e) {}
 }
 function stopVenueBgm() {
@@ -707,14 +718,28 @@ function animateNext() {
     });
     return;
   }
-  if (aniIndex === 0) startBgm();
-  const { members: team, venue } = aniTeams[aniIndex];
+  const { members: team, venue, skipSlot } = aniTeams[aniIndex];
   const teamNo = aniIndex + 1 + _aniOffset;
   const titleEl = document.getElementById('matching-title');
   titleEl.classList.remove('title-pop'); void titleEl.offsetWidth;
   titleEl.textContent = `🎯 팀 ${teamNo}`;
   titleEl.classList.add('title-pop');
   titleEl.addEventListener('animationend', () => titleEl.classList.remove('title-pop'), { once: true });
+
+  if (skipSlot) {
+    // 수동 배정 팀: 슬롯 없이 바로 카드 표시
+    document.getElementById('slot-area').innerHTML = '';
+    flashScreen();
+    setTimeout(() => {
+      if (aniCancelled) return;
+      revealTeam({ members: team, venue }, teamNo);
+      aniIndex++;
+      setTimeout(animateNext, 900);
+    }, 200);
+    return;
+  }
+
+  startBgm();
   const allNames = getPool().map(m => m.name);
   buildSlotUI(team, allNames, () => {
     if (aniCancelled) { stopBgm(); return; }
@@ -931,7 +956,7 @@ function renderManual() {
     const membersHTML = team.members.map((m, mi) =>
       `<span class="name-chip name-chip-rm" onclick="removeManualMember(${i},${mi})">${esc(m.name)} ✕</span>`
     ).join('');
-    const venueLabel = team.venue ? `📍 ${esc(team.venue.name)}` : '📍 장소 선택';
+    const venueLabel = team.venue ? `📍 ${esc(team.venue.name)}` : '🎲 자동 배정';
     const rmBtn = manualTeams.length > 1 ? `<button class="btn-rm-team" onclick="removeManualTeam(${i})" title="팀 삭제">✕</button>` : '';
     return `
       <div class="manual-team-card">
@@ -972,22 +997,52 @@ function pickManualVenue(teamIdx) { openVenuePicker(venue => { manualTeams[teamI
 function finalizeManual() {
   _initAC();
   const fixedTeams = manualTeams.filter(t => t.members.length > 0);
+  if (fixedTeams.length === 0) { toast('최소 1팀 이상 배정해주세요.'); return; }
+
+  const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
+  const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
+
   const pool = getPool();
   const assigned = new Set(fixedTeams.flatMap(t => t.members.map(m => m.id)));
   const remaining = pool.filter(m => !assigned.has(m.id));
   if (remaining.length === 1) { toast('나머지 1명은 팀을 구성할 수 없습니다. 기존 팀에 추가해주세요.'); return; }
-  let randomResults = [];
+
+  let randomTeams = [];
   if (remaining.length >= 2) {
-    try { const teams = generateTeams(remaining); randomResults = assignVenues(teams, db.venues.filter(v => !sessionHiddenVenues.has(v.id))); }
+    try { randomTeams = generateTeams(remaining); }
     catch(e) { toast(e.message); return; }
   }
+
+  // 장소 자동 배정: 이미 지정된 장소 제외 후 나머지 팀에 배분
+  const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
+  const activeVenues = db.venues.filter(v => !sessionHiddenVenues.has(v.id) && !usedVenueIds.has(v.id));
+  const teamsNeedingVenue = [...fixedWithoutVenue.map(t => t.members), ...randomTeams];
+  const venueResults = teamsNeedingVenue.length > 0
+    ? assignVenues(teamsNeedingVenue, activeVenues)
+    : [];
+
+  const fixedVenueResults = venueResults.slice(0, fixedWithoutVenue.length);
+  const randomResults     = venueResults.slice(fixedWithoutVenue.length);
+
   _manualCount = fixedTeams.length;
-  matchResult = [...fixedTeams.map(t => ({ members: t.members, venue: t.venue })), ...randomResults];
-  if (randomResults.length === 0) { showResults(); return; }
-  aniTeams = randomResults; aniIndex = 0; aniCancelled = false; _aniOffset = _manualCount;
+  matchResult = [
+    ...fixedWithVenue.map(t => ({ members: t.members, venue: t.venue })),
+    ...fixedVenueResults,
+    ...randomResults,
+  ];
+
+  const hasAnimation = fixedVenueResults.length > 0 || randomResults.length > 0;
+  if (!hasAnimation) { showResults(); return; }
+
+  aniTeams = [
+    ...fixedVenueResults.map(r => ({ ...r, skipSlot: true })),
+    ...randomResults,
+  ];
+  aniIndex = 0; aniCancelled = false; _aniOffset = fixedWithVenue.length;
   document.getElementById('teams-revealed').innerHTML = '';
   document.getElementById('slot-area').innerHTML = '';
-  document.getElementById('matching-title').textContent = '🎯 나머지 랜덤 매칭 중...';
+  document.getElementById('matching-title').textContent =
+    randomResults.length > 0 ? '🎯 나머지 랜덤 매칭 중...' : '🎯 장소 배정 중...';
   showPage('page-matching');
   setTimeout(animateNext, 800);
 }
