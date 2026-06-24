@@ -625,37 +625,59 @@ function startVenueBgm() {
   try {
     const ac = _ac(); if (!ac) return;
     if (ac.state === 'suspended') ac.resume();
+
     const master = ac.createGain();
     master.gain.setValueAtTime(0, ac.currentTime);
-    master.gain.linearRampToValueAtTime(0.9, ac.currentTime + 0.4);
+    master.gain.linearRampToValueAtTime(0.6, ac.currentTime + 0.7);
     master.connect(ac.destination);
+
+    // 에코로 공간감 추가
+    const echo = ac.createDelay(1.0);
+    echo.delayTime.value = 0.36;
+    const echoGain = ac.createGain();
+    echoGain.gain.value = 0.20;
+    echo.connect(echoGain);
+    echoGain.connect(echo);
+    echoGain.connect(master);
+
     _venueBgm = { master, active: true };
-    const melody = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
-    const bass   = [130.81, 0, 196.00, 0, 196.00, 0];
-    const step = 0.18;
+
+    // 피아노/셀레스타 음색: 사인파 배음 + 빠른 어택 + 긴 릴리즈
+    function playNote(freq, t, vol) {
+      const env = ac.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(vol, t + 0.007);
+      env.gain.exponentialRampToValueAtTime(vol * 0.4, t + 0.09);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      env.connect(master);
+      env.connect(echo);
+      [[1, 1.0], [2, 0.30], [4, 0.07]].forEach(([h, w]) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        g.gain.value = w; o.type = 'sine'; o.frequency.value = freq * h;
+        o.connect(g); g.connect(env); o.start(t); o.stop(t + 2.1);
+      });
+    }
+
+    // Cmaj7 → Am7 → Fmaj7 → G7 아르페지오 (우아한 클래식 진행)
+    const chords = [
+      [523.25, 659.25, 783.99, 987.77],  // Cmaj7
+      [440.00, 523.25, 659.25, 783.99],  // Am7
+      [349.23, 440.00, 523.25, 659.25],  // Fmaj7
+      [392.00, 493.88, 587.33, 783.99],  // G7
+    ];
+    const step = 0.30;
+
     function tick(t) {
       if (!_venueBgm?.active) return;
-      melody.forEach((freq, i) => {
-        const noteT = t + i * step;
-        const mo = ac.createOscillator(), mg = ac.createGain();
-        mo.type = 'triangle'; mo.frequency.value = freq;
-        mg.gain.setValueAtTime(0.0001, noteT);
-        mg.gain.linearRampToValueAtTime(0.14, noteT + 0.02);
-        mg.gain.exponentialRampToValueAtTime(0.001, noteT + step * 0.82);
-        mo.connect(mg); mg.connect(master); mo.start(noteT); mo.stop(noteT + step);
-        if (bass[i]) {
-          const bo = ac.createOscillator(), bg = ac.createGain();
-          bo.type = 'sine'; bo.frequency.value = bass[i];
-          bg.gain.setValueAtTime(0.0001, noteT);
-          bg.gain.linearRampToValueAtTime(0.11, noteT + 0.02);
-          bg.gain.exponentialRampToValueAtTime(0.001, noteT + step * 0.65);
-          bo.connect(bg); bg.connect(master); bo.start(noteT); bo.stop(noteT + step);
-        }
+      chords.forEach((chord, ci) => {
+        const base = t + ci * chord.length * step;
+        playNote(chord[0] / 2, base, 0.07); // 베이스음
+        chord.forEach((freq, ni) => playNote(freq, base + ni * step, 0.10));
       });
-      const loopLen = melody.length * step;
-      setTimeout(() => tick(t + loopLen), (loopLen - 0.1) * 1000);
+      const loopLen = chords.length * chords[0].length * step;
+      setTimeout(() => tick(t + loopLen), (loopLen - 0.2) * 1000);
     }
-    tick(ac.currentTime + 0.1);
+    tick(ac.currentTime + 0.3);
   } catch(e) {}
 }
 function stopVenueBgm() {
