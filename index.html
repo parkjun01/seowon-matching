@@ -21,11 +21,12 @@
       <span class="participants-label">이번 참석자</span>
       <div class="participants-header-right">
         <span class="participants-count" id="stat-total">0명</span>
-        <button class="btn-add-participant" onclick="openAddParticipant()" title="참여 가능 인원 추가">+</button>
+        <button class="btn-paste-list" onclick="openPasteModal()" title="텍스트로 명단 불러오기">📋</button>
+        <button class="btn-add-participant" onclick="openAddParticipant()" title="개별 추가">+</button>
       </div>
     </div>
     <div id="home-names" class="home-names">
-      <p class="home-names-empty">관리자 페이지에서 멤버를 추가해주세요.</p>
+      <p class="home-names-empty">📋 버튼으로 명단을 불러오거나 + 버튼으로 추가하세요.</p>
     </div>
   </div>
 
@@ -55,11 +56,11 @@
   <div class="admin-grid">
     <button class="admin-btn" onclick="showPage('page-required')">
       <span class="admin-icon">👥</span>
-      <span>고정 멤버 관리</span>
+      <span>고정 멤버</span>
     </button>
     <button class="admin-btn" onclick="showPage('page-optional')">
-      <span class="admin-icon">👤</span>
-      <span>유동 멤버 관리</span>
+      <span class="admin-icon">🔄</span>
+      <span>유동 멤버</span>
     </button>
     <button class="admin-btn" onclick="showPage('page-venues')">
       <span class="admin-icon">📍</span>
@@ -77,14 +78,14 @@
 <div id="page-required" class="page">
   <div class="page-header">
     <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
-    <h2>고정 멤버 관리</h2>
-    <button class="btn btn-sm btn-primary" onclick="openMemberModal('required')">+ 추가</button>
+    <h2>고정 멤버</h2>
+    <button class="btn btn-sm btn-primary" onclick="openRequiredModal()">+ 추가</button>
   </div>
-  <p class="page-desc">매번 전도짝 모임에 반드시 참석하는 멤버입니다. 매칭 시 자동으로 포함됩니다.</p>
+  <p class="page-desc">매회 자동으로 매칭에 포함되는 멤버입니다.</p>
   <div id="list-required" class="card-list"></div>
   <div id="empty-required" class="empty-state">
     <p>등록된 고정 멤버가 없습니다.</p>
-    <button class="btn btn-primary" onclick="openMemberModal('required')">첫 멤버 추가하기</button>
+    <button class="btn btn-primary" onclick="openRequiredModal()">첫 멤버 추가하기</button>
   </div>
 </div>
 
@@ -92,14 +93,14 @@
 <div id="page-optional" class="page">
   <div class="page-header">
     <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
-    <h2>유동 멤버 관리</h2>
-    <button class="btn btn-sm btn-primary" onclick="openMemberModal('optional')">+ 추가</button>
+    <h2>유동 멤버</h2>
+    <button class="btn btn-sm btn-primary" onclick="openOptionalModal()">+ 추가</button>
   </div>
-  <p class="page-desc">참석 여부가 그때그때 다른 멤버입니다. "이번 참석" 토글로 이번 회차 매칭에 포함할 수 있습니다.</p>
+  <p class="page-desc">"이번 참석" 토글로 이번 회차 매칭에 포함할 수 있습니다.</p>
   <div id="list-optional" class="card-list"></div>
   <div id="empty-optional" class="empty-state">
     <p>등록된 유동 멤버가 없습니다.</p>
-    <button class="btn btn-primary" onclick="openMemberModal('optional')">첫 멤버 추가하기</button>
+    <button class="btn btn-primary" onclick="openOptionalModal()">첫 멤버 추가하기</button>
   </div>
 </div>
 
@@ -156,7 +157,6 @@
     <h3 id="modal-member-title">멤버 추가</h3>
     <form id="form-member" onsubmit="saveMember(event)">
       <input type="hidden" id="m-id">
-      <input type="hidden" id="m-type">
       <div class="form-group">
         <label>이름</label>
         <input type="text" id="m-name" placeholder="이름을 입력하세요" required>
@@ -251,13 +251,28 @@
   </div>
 </div>
 
-<!-- ===== 참여 가능 인원 추가 모달 ===== -->
+<!-- ===== 개별 추가 모달 ===== -->
 <div id="modal-add-participant" class="modal-overlay" onclick="onOverlayClick(event,'modal-add-participant')">
   <div class="modal">
-    <h3>참여 가능 인원</h3>
+    <h3>참여 인원 추가</h3>
     <div id="add-participant-list" class="pick-list"></div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-participant')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 명단 텍스트 불러오기 모달 ===== -->
+<div id="modal-paste" class="modal-overlay" onclick="onOverlayClick(event,'modal-paste')">
+  <div class="modal">
+    <h3>📋 명단 텍스트 불러오기</h3>
+    <p class="paste-desc">참여 명단이 적힌 텍스트를 붙여넣으세요.<br>이름을 자동으로 인식해 이번 참석으로 설정합니다.</p>
+    <div class="form-group">
+      <textarea id="paste-text" rows="7" placeholder="예시:&#10;홍길동&#10;김철수&#10;이영희&#10;&#10;(카카오톡 등 어떤 형식이든 가능)"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-paste')">취소</button>
+      <button type="button" class="btn btn-primary" onclick="applyPasteText()">인식 후 적용</button>
     </div>
   </div>
 </div>
