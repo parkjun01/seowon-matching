@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>청주서원 전도짝 매칭</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== 홈 ===== -->
+<div id="page-home" class="page active">
+  <div class="home-header">
+    <h1>전도짝 매칭</h1>
+    <p class="subtitle">청주서원</p>
+  </div>
+
+  <div class="participants-card">
+    <div class="participants-header">
+      <span class="participants-label">이번 참석자</span>
+      <div class="participants-header-right">
+        <span class="participants-count" id="stat-total">0명</span>
+        <button class="btn-add-participant" onclick="openAddParticipant()" title="참여 가능 인원 추가">+</button>
+      </div>
+    </div>
+    <div id="home-names" class="home-names">
+      <p class="home-names-empty">관리자 페이지에서 멤버를 추가해주세요.</p>
+    </div>
+  </div>
+
+  <div class="participants-card" id="home-venues-card">
+    <div class="participants-header">
+      <span class="participants-label">전도 장소</span>
+      <button class="btn-add-participant" onclick="openVenueModal()" title="장소 추가">+</button>
+    </div>
+    <div id="home-venue-chips" class="home-names"></div>
+  </div>
+
+  <div class="home-actions">
+    <button class="btn btn-start" onclick="startMatching()">🎯 랜덤 매칭</button>
+    <button class="btn btn-manual" onclick="openManualMode()">✏️ 직접 배정</button>
+  </div>
+  <button class="btn-admin-entry" onclick="openAdminLogin()">⚙️ 관리자 페이지</button>
+</div>
+
+<!-- ===== 관리자 페이지 ===== -->
+<div id="page-admin" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-home')">← 뒤로</button>
+    <h2>관리자 페이지</h2>
+    <div></div>
+  </div>
+  <p class="page-desc">멤버와 장소 데이터를 관리합니다.</p>
+  <div class="admin-grid">
+    <button class="admin-btn" onclick="showPage('page-required')">
+      <span class="admin-icon">👥</span>
+      <span>고정 멤버 관리</span>
+    </button>
+    <button class="admin-btn" onclick="showPage('page-optional')">
+      <span class="admin-icon">👤</span>
+      <span>유동 멤버 관리</span>
+    </button>
+    <button class="admin-btn" onclick="showPage('page-venues')">
+      <span class="admin-icon">📍</span>
+      <span>장소 관리</span>
+    </button>
+    <button class="admin-btn" onclick="openManualMode()">
+      <span class="admin-icon">✏️</span>
+      <span>직접 배정</span>
+    </button>
+  </div>
+  <button class="btn-change-pw" onclick="openChangePw()">🔒 비밀번호 변경</button>
+</div>
+
+<!-- ===== 고정 멤버 관리 ===== -->
+<div id="page-required" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
+    <h2>고정 멤버 관리</h2>
+    <button class="btn btn-sm btn-primary" onclick="openMemberModal('required')">+ 추가</button>
+  </div>
+  <p class="page-desc">매번 전도짝 모임에 반드시 참석하는 멤버입니다. 매칭 시 자동으로 포함됩니다.</p>
+  <div id="list-required" class="card-list"></div>
+  <div id="empty-required" class="empty-state">
+    <p>등록된 고정 멤버가 없습니다.</p>
+    <button class="btn btn-primary" onclick="openMemberModal('required')">첫 멤버 추가하기</button>
+  </div>
+</div>
+
+<!-- ===== 유동 멤버 관리 ===== -->
+<div id="page-optional" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
+    <h2>유동 멤버 관리</h2>
+    <button class="btn btn-sm btn-primary" onclick="openMemberModal('optional')">+ 추가</button>
+  </div>
+  <p class="page-desc">참석 여부가 그때그때 다른 멤버입니다. "이번 참석" 토글로 이번 회차 매칭에 포함할 수 있습니다.</p>
+  <div id="list-optional" class="card-list"></div>
+  <div id="empty-optional" class="empty-state">
+    <p>등록된 유동 멤버가 없습니다.</p>
+    <button class="btn btn-primary" onclick="openMemberModal('optional')">첫 멤버 추가하기</button>
+  </div>
+</div>
+
+<!-- ===== 장소 관리 ===== -->
+<div id="page-venues" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
+    <h2>장소 관리</h2>
+    <button class="btn btn-sm btn-primary" onclick="openVenueModal()">+ 추가</button>
+  </div>
+  <p class="page-desc">전도 방문 장소 목록입니다. ▲▼로 순서를 조정하세요. 장소가 팀 수보다 많을 때 낮은 순위 장소부터 제외됩니다.</p>
+  <div id="list-venues" class="card-list"></div>
+  <div id="empty-venues" class="empty-state">
+    <p>등록된 장소가 없습니다.</p>
+    <button class="btn btn-primary" onclick="openVenueModal()">첫 장소 추가하기</button>
+  </div>
+</div>
+
+<!-- ===== 매칭 대상 확인 ===== -->
+<div id="page-confirm" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-home')">← 뒤로</button>
+    <h2>매칭 대상 확인</h2>
+  </div>
+  <p class="page-desc">이번 회차 매칭 인원입니다. 제외 버튼으로 특정 인원을 이번 회차에서만 제외할 수 있습니다.</p>
+  <div id="confirm-list" class="card-list"></div>
+  <div id="combo-count" class="combo-info"></div>
+  <button class="btn btn-start" onclick="startAnimation()">🎰 뽑기 시작!</button>
+  <div style="height:40px"></div>
+</div>
+
+<!-- ===== 매칭 애니메이션 ===== -->
+<div id="page-matching" class="page page-dark">
+  <h2 class="matching-title" id="matching-title">팀 구성 중...</h2>
+  <div id="slot-area" class="slot-area"></div>
+  <div id="teams-revealed" class="teams-revealed"></div>
+</div>
+
+<!-- ===== 결과 ===== -->
+<div id="page-results" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="goHome()">← 처음으로</button>
+    <h2>매칭 결과 🎉</h2>
+    <button class="btn btn-sm btn-secondary" onclick="restartMatching()">🔄 다시 뽑기</button>
+  </div>
+  <div id="results-list" class="results-list"></div>
+  <div style="height:40px"></div>
+</div>
+
+<!-- ===== 멤버 모달 ===== -->
+<div id="modal-member" class="modal-overlay" onclick="onOverlayClick(event,'modal-member')">
+  <div class="modal">
+    <h3 id="modal-member-title">멤버 추가</h3>
+    <form id="form-member" onsubmit="saveMember(event)">
+      <input type="hidden" id="m-id">
+      <input type="hidden" id="m-type">
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="m-name" placeholder="이름을 입력하세요" required>
+      </div>
+      <div class="form-group">
+        <label>성별</label>
+        <div class="radio-row">
+          <label class="radio-opt"><input type="radio" name="m-gender" value="male" required> 남자</label>
+          <label class="radio-opt"><input type="radio" name="m-gender" value="female"> 여자</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>직책 <span class="label-hint">(선택사항 — 예: 순장, 총무, 리더)</span></label>
+        <input type="text" id="m-role" placeholder="직책을 입력하세요 (없으면 빈칸)">
+      </div>
+      <div class="form-group">
+        <label class="check-opt"><input type="checkbox" id="m-car"> 차량 보유</label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-member')">취소</button>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 장소 모달 ===== -->
+<div id="modal-venue" class="modal-overlay" onclick="onOverlayClick(event,'modal-venue')">
+  <div class="modal">
+    <h3 id="modal-venue-title">장소 추가</h3>
+    <form id="form-venue" onsubmit="saveVenue(event)">
+      <input type="hidden" id="v-id">
+      <div class="form-group">
+        <label>장소명</label>
+        <input type="text" id="v-name" placeholder="장소명을 입력하세요" required>
+      </div>
+      <div class="form-group">
+        <label class="check-opt"><input type="checkbox" id="v-car"> 차량 필요</label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-venue')">취소</button>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 직접 배정 ===== -->
+<div id="page-manual" class="page">
+  <div class="page-header">
+    <button class="btn-back" onclick="showPage('page-admin')">← 뒤로</button>
+    <h2>직접 배정</h2>
+    <button class="btn btn-sm btn-primary" onclick="addManualTeam()">+ 팀 추가</button>
+  </div>
+  <p class="page-desc">멤버를 직접 팀에 배정하고 장소를 지정합니다.</p>
+
+  <div class="manual-unassigned">
+    <div class="manual-section-title">미배정 멤버 <span class="manual-pool-hint">→ 랜덤 배정됩니다</span></div>
+    <div id="manual-pool" class="name-chip-group"></div>
+  </div>
+
+  <div id="manual-teams" class="manual-teams"></div>
+
+  <button class="btn btn-start" onclick="finalizeManual()">🎰 확정 + 나머지 랜덤 배정</button>
+  <div style="height:40px"></div>
+</div>
+
+<!-- ===== 장소 픽커 모달 ===== -->
+<div id="modal-venue-pick" class="modal-overlay" onclick="onOverlayClick(event,'modal-venue-pick')">
+  <div class="modal">
+    <h3>장소 선택</h3>
+    <div id="venue-pick-list" class="pick-list"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-venue-pick')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 멤버 픽커 모달 ===== -->
+<div id="modal-member-pick" class="modal-overlay" onclick="onOverlayClick(event,'modal-member-pick')">
+  <div class="modal">
+    <h3>멤버 추가</h3>
+    <div id="member-pick-list" class="pick-list"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-member-pick')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 참여 가능 인원 추가 모달 ===== -->
+<div id="modal-add-participant" class="modal-overlay" onclick="onOverlayClick(event,'modal-add-participant')">
+  <div class="modal">
+    <h3>참여 가능 인원</h3>
+    <div id="add-participant-list" class="pick-list"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-participant')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 관리자 로그인 모달 ===== -->
+<div id="modal-admin-login" class="modal-overlay">
+  <div class="modal">
+    <h3>🔐 관리자 확인</h3>
+    <form id="form-admin-login" onsubmit="submitAdminLogin(event)">
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="admin-pw-input" placeholder="비밀번호를 입력하세요"
+               autocomplete="off" inputmode="numeric">
+      </div>
+      <p id="admin-pw-error" class="pw-error" style="display:none">비밀번호가 틀렸습니다.</p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-admin-login')">취소</button>
+        <button type="submit" class="btn btn-primary">확인</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 비밀번호 변경 모달 ===== -->
+<div id="modal-change-pw" class="modal-overlay" onclick="onOverlayClick(event,'modal-change-pw')">
+  <div class="modal">
+    <h3>🔒 비밀번호 변경</h3>
+    <form id="form-change-pw" onsubmit="submitChangePw(event)">
+      <div class="form-group">
+        <label>현재 비밀번호</label>
+        <input type="password" id="cp-current" placeholder="현재 비밀번호" autocomplete="off" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호</label>
+        <input type="password" id="cp-new" placeholder="새 비밀번호" autocomplete="off" inputmode="numeric" required>
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="cp-confirm" placeholder="다시 입력" autocomplete="off" inputmode="numeric" required>
+      </div>
+      <p id="cp-error" class="pw-error" style="display:none"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-change-pw')">취소</button>
+        <button type="submit" class="btn btn-primary">변경</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
