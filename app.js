@@ -628,67 +628,48 @@ function startVenueBgm() {
 
     const master = ac.createGain();
     master.gain.setValueAtTime(0, ac.currentTime);
-    master.gain.linearRampToValueAtTime(0.55, ac.currentTime + 0.5);
+    master.gain.linearRampToValueAtTime(0.60, ac.currentTime + 0.4);
     master.connect(ac.destination);
-
-    // 리버브 시뮬레이션
-    const rev = ac.createDelay(0.6);
-    rev.delayTime.value = 0.28;
-    const revGain = ac.createGain();
-    revGain.gain.value = 0.18;
-    rev.connect(revGain); revGain.connect(rev); revGain.connect(master);
-
     _venueBgm = { master, active: true };
 
-    // 피아노 음색: 빠른 어택 + 배음 + 긴 릴리즈
-    function note(freq, t, vol, dur) {
+    const bpm = 120, b = 60 / bpm;
+
+    // 마림바/비브라폰 음색
+    function pluck(freq, t, vol) {
       const env = ac.createGain();
       env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(vol, t + 0.006);
-      env.gain.exponentialRampToValueAtTime(vol * 0.38, t + 0.07);
-      env.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      env.connect(master); env.connect(rev);
-      [[1,1],[2,0.28],[3,0.08]].forEach(([h,w]) => {
+      env.gain.linearRampToValueAtTime(vol, t + 0.009);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      env.connect(master);
+      [[1,1],[2,0.28],[4,0.06]].forEach(([h,w]) => {
         const o = ac.createOscillator(), g = ac.createGain();
         o.type = 'sine'; o.frequency.value = freq * h; g.gain.value = w;
-        o.connect(g); g.connect(env); o.start(t); o.stop(t + dur + 0.1);
+        o.connect(g); g.connect(env); o.start(t); o.stop(t + 0.6);
       });
     }
+    function bassNote(freq, t) {
+      const env = ac.createGain();
+      env.gain.setValueAtTime(0.08, t);
+      env.gain.exponentialRampToValueAtTime(0.001, t + b * 3.5);
+      env.connect(master);
+      const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
+      o.connect(env); o.start(t); o.stop(t + b * 4);
+    }
 
-    // 친숙한 C장조 왈츠 멜로디 (도레미파솔라시도 느낌의 주선율 + 반주)
-    // 멜로디: C5-E5-G5-C6 / A4-C5-E5-A5 / F4-A4-C5-F5 / G4-B4-D5-G5 (각 1박)
-    // 베이스: 루트음 + 5도 화음
-    const bpm = 112;
-    const beat = 60 / bpm;
-
-    // [멜로디(freq, dur_beats), ...], [베이스(freq, dur_beats), ...]
-    const bars = [
-      { mel: [[523.25,1],[587.33,1],[659.25,1],[783.99,1],[659.25,1],[587.33,1]], bass: [[130.81,3],[196.00,3]] },
-      { mel: [[880.00,1],[783.99,1],[659.25,1],[523.25,1],[440.00,1],[392.00,1]], bass: [[110.00,3],[164.81,3]] },
-      { mel: [[349.23,1],[440.00,1],[523.25,1],[659.25,1],[523.25,1],[440.00,1]], bass: [[87.31,3],[130.81,3]] },
-      { mel: [[392.00,1],[493.88,1],[587.33,1],[783.99,2],[659.25,1]],           bass: [[98.00,3],[146.83,3]] },
-    ];
+    // I-vi-IV-V (C-Am-F-G): 누구나 편안하게 느끼는 팝 진행
+    // 멜로디: C5 E5 G5 E5 | A4 C5 E5 C5 | F4 A4 C5 A4 | G4 B4 D5 G5
+    const mel = [523.25,659.25,783.99,659.25, 440.00,523.25,659.25,523.25,
+                 349.23,440.00,523.25,440.00, 392.00,493.88,587.33,783.99];
+    const basses = [130.81, 110.00, 87.31, 98.00]; // C2 A2 F2 G2
 
     function tick(t) {
       if (!_venueBgm?.active) return;
-      let offset = 0;
-      bars.forEach(bar => {
-        let mOff = 0;
-        bar.mel.forEach(([f, d]) => {
-          note(f, t + offset + mOff * beat, 0.10, d * beat * 0.85);
-          mOff += d;
-        });
-        let bOff = 0;
-        bar.bass.forEach(([f, d]) => {
-          note(f, t + offset + bOff * beat, 0.07, d * beat * 0.7);
-          bOff += d;
-        });
-        offset += 6 * beat;
-      });
-      const loopLen = bars.length * 6 * beat;
-      setTimeout(() => tick(t + loopLen), (loopLen - 0.15) * 1000);
+      mel.forEach((f, i) => pluck(f, t + i * b, 0.11));
+      basses.forEach((f, i) => bassNote(f, t + i * b * 4));
+      const loopLen = mel.length * b;
+      setTimeout(() => tick(t + loopLen), (loopLen - 0.1) * 1000);
     }
-    tick(ac.currentTime + 0.25);
+    tick(ac.currentTime + 0.2);
   } catch(e) {}
 }
 function stopVenueBgm() {
@@ -999,9 +980,6 @@ function finalizeManual() {
   const fixedTeams = manualTeams.filter(t => t.members.length > 0);
   if (fixedTeams.length === 0) { toast('최소 1팀 이상 배정해주세요.'); return; }
 
-  const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
-  const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
-
   const pool = getPool();
   const assigned = new Set(fixedTeams.flatMap(t => t.members.map(m => m.id)));
   const remaining = pool.filter(m => !assigned.has(m.id));
@@ -1013,36 +991,35 @@ function finalizeManual() {
     catch(e) { toast(e.message); return; }
   }
 
-  // 장소 자동 배정: 이미 지정된 장소 제외 후 나머지 팀에 배분
+  // 장소: 이미 지정한 장소는 유지, 미지정 팀은 랜덤 팀과 함께 자동 배분
+  const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
+  const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
   const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
   const activeVenues = db.venues.filter(v => !sessionHiddenVenues.has(v.id) && !usedVenueIds.has(v.id));
   const teamsNeedingVenue = [...fixedWithoutVenue.map(t => t.members), ...randomTeams];
-  const venueResults = teamsNeedingVenue.length > 0
-    ? assignVenues(teamsNeedingVenue, activeVenues)
-    : [];
+  const autoResults = teamsNeedingVenue.length > 0 ? assignVenues(teamsNeedingVenue, activeVenues) : [];
+  const fixedVenueResults = autoResults.slice(0, fixedWithoutVenue.length);
+  const randomResults     = autoResults.slice(fixedWithoutVenue.length);
 
-  const fixedVenueResults = venueResults.slice(0, fixedWithoutVenue.length);
-  const randomResults     = venueResults.slice(fixedWithoutVenue.length);
+  // 원래 팀 순서 유지하면서 자동 배정 장소 합치기
+  let vIdx = 0;
+  const fixedResults = fixedTeams.map(t =>
+    t.venue !== null ? { members: t.members, venue: t.venue } : fixedVenueResults[vIdx++]
+  );
 
   _manualCount = fixedTeams.length;
-  matchResult = [
-    ...fixedWithVenue.map(t => ({ members: t.members, venue: t.venue })),
-    ...fixedVenueResults,
-    ...randomResults,
-  ];
+  matchResult = [...fixedResults, ...randomResults];
 
-  const hasAnimation = fixedVenueResults.length > 0 || randomResults.length > 0;
-  if (!hasAnimation) { showResults(); return; }
-
+  // 직접 배정 팀(skipSlot) + 랜덤 팀(슬롯 애니메이션) 모두 aniTeams에 포함
   aniTeams = [
-    ...fixedVenueResults.map(r => ({ ...r, skipSlot: true })),
+    ...fixedResults.map(r => ({ ...r, skipSlot: true })),
     ...randomResults,
   ];
-  aniIndex = 0; aniCancelled = false; _aniOffset = fixedWithVenue.length;
+  aniIndex = 0; aniCancelled = false; _aniOffset = 0;
   document.getElementById('teams-revealed').innerHTML = '';
   document.getElementById('slot-area').innerHTML = '';
   document.getElementById('matching-title').textContent =
-    randomResults.length > 0 ? '🎯 나머지 랜덤 매칭 중...' : '🎯 장소 배정 중...';
+    randomResults.length > 0 ? '🎯 매칭 중...' : '🎯 팀 확인';
   showPage('page-matching');
   setTimeout(animateNext, 800);
 }
