@@ -198,7 +198,7 @@ function memberCardHTML(m, type) {
   const gTag = m.gender === 'male'
     ? '<span class="tag tag-m">남</span>'
     : '<span class="tag tag-f">여</span>';
-  const rTag = m.role && m.role.trim() ? `<span class="tag tag-role">${esc(m.role)}</span>` : '';
+  const rTag = m.role && m.role !== '성도' ? `<span class="tag tag-role">${esc(m.role)}</span>` : '';
   const cTag = m.hasCar ? '<span class="tag tag-car">🚗 차량</span>' : '';
   return `
     <div class="member-card">
@@ -218,7 +218,7 @@ function optionalCardHTML(m) {
   const gTag = m.gender === 'male'
     ? '<span class="tag tag-m">남</span>'
     : '<span class="tag tag-f">여</span>';
-  const rTag = m.role && m.role.trim() ? `<span class="tag tag-role">${esc(m.role)}</span>` : '';
+  const rTag = m.role && m.role !== '성도' ? `<span class="tag tag-role">${esc(m.role)}</span>` : '';
   const cTag = m.hasCar ? '<span class="tag tag-car">🚗 차량</span>' : '';
   const onClass = m.attending ? 'on' : '';
   const onText  = m.attending ? '✅ 이번 참석' : '이번 참석';
@@ -379,7 +379,7 @@ function generateTeamsWithConfig(members, twos, threes) {
     }
     return teams;
   }
-  const hasLeader = t => t.some(m => m.role && m.role.trim() !== '');
+  const hasLeader = t => t.some(m => m.role && m.role !== '성도');
   // 1순위: 혼성 + 각 팀 직책자 1명 이상
   for (let t = 0; t < 800; t++) {
     const teams = _tryBuildMixed(members, threes, twos);
@@ -464,7 +464,7 @@ function generateTeams(members) {
     }
     return teams;
   }
-  const hasLeader = t => t.some(m => m.role && m.role.trim() !== '');
+  const hasLeader = t => t.some(m => m.role && m.role !== '성도');
   // 1순위: 혼성 + 각 팀 직책자 1명 이상
   for (let t = 0; t < 800; t++) {
     const teams = _tryBuildMixed(members, threes, twos);
@@ -967,6 +967,12 @@ function renderResults() {
     return `${divider}<div class="result-card"><div class="result-team-no">팀 ${i + 1} ${badge}</div><div class="result-members">${membersHTML}</div>${venueHTML}</div>`;
   }).join('');
 }
+function skipMatching() {
+  aniCancelled = true;
+  stopBgm();
+  stopVenueBgm();
+  showResults();
+}
 function restartMatching() {
   aniCancelled = true;
   showPage('page-confirm');
@@ -1091,7 +1097,7 @@ function openMemberModal(type) {
   document.getElementById('m-id').value   = '';
   document.getElementById('m-type').value = type;
   document.getElementById('m-name').value = '';
-  document.getElementById('m-role').value = '';
+  document.getElementById('m-role').value = '성도';
   document.getElementById('m-car').checked = false;
   document.querySelectorAll('input[name="m-gender"]').forEach(r => r.checked = false);
   openModal('modal-member');

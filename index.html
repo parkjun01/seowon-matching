@@ -136,6 +136,7 @@
   <h2 class="matching-title" id="matching-title">팀 구성 중...</h2>
   <div id="slot-area" class="slot-area"></div>
   <div id="teams-revealed" class="teams-revealed"></div>
+  <button class="btn-skip" onclick="skipMatching()">건너뛰기 →</button>
 </div>
 
 <!-- ===== 결과 ===== -->
@@ -168,8 +169,13 @@
         </div>
       </div>
       <div class="form-group">
-        <label>직책 <span class="label-hint">(선택사항 — 예: 순장, 총무, 리더)</span></label>
-        <input type="text" id="m-role" placeholder="직책을 입력하세요 (없으면 빈칸)">
+        <label>직책</label>
+        <select id="m-role">
+          <option value="성도">성도</option>
+          <option value="구역장">구역장</option>
+          <option value="지역장">지역장</option>
+          <option value="목회자">목회자</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="check-opt"><input type="checkbox" id="m-car"> 차량 보유</label>
