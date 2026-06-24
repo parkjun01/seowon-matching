@@ -620,58 +620,8 @@ function stopBgm() {
   _bgmPlaying = false;
 }
 let _venueBgm = null;
-function startVenueBgm() {
-  if (_venueBgm) return;
-  try {
-    const ac = _ac(); if (!ac) return;
-    if (ac.state === 'suspended') ac.resume();
+function startVenueBgm() {}
 
-    const master = ac.createGain();
-    master.gain.setValueAtTime(0, ac.currentTime);
-    master.gain.linearRampToValueAtTime(0.60, ac.currentTime + 0.4);
-    master.connect(ac.destination);
-    _venueBgm = { master, active: true };
-
-    const bpm = 120, b = 60 / bpm;
-
-    // 마림바/비브라폰 음색
-    function pluck(freq, t, vol) {
-      const env = ac.createGain();
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(vol, t + 0.009);
-      env.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
-      env.connect(master);
-      [[1,1],[2,0.28],[4,0.06]].forEach(([h,w]) => {
-        const o = ac.createOscillator(), g = ac.createGain();
-        o.type = 'sine'; o.frequency.value = freq * h; g.gain.value = w;
-        o.connect(g); g.connect(env); o.start(t); o.stop(t + 0.6);
-      });
-    }
-    function bassNote(freq, t) {
-      const env = ac.createGain();
-      env.gain.setValueAtTime(0.08, t);
-      env.gain.exponentialRampToValueAtTime(0.001, t + b * 3.5);
-      env.connect(master);
-      const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = freq;
-      o.connect(env); o.start(t); o.stop(t + b * 4);
-    }
-
-    // I-vi-IV-V (C-Am-F-G): 누구나 편안하게 느끼는 팝 진행
-    // 멜로디: C5 E5 G5 E5 | A4 C5 E5 C5 | F4 A4 C5 A4 | G4 B4 D5 G5
-    const mel = [523.25,659.25,783.99,659.25, 440.00,523.25,659.25,523.25,
-                 349.23,440.00,523.25,440.00, 392.00,493.88,587.33,783.99];
-    const basses = [130.81, 110.00, 87.31, 98.00]; // C2 A2 F2 G2
-
-    function tick(t) {
-      if (!_venueBgm?.active) return;
-      mel.forEach((f, i) => pluck(f, t + i * b, 0.11));
-      basses.forEach((f, i) => bassNote(f, t + i * b * 4));
-      const loopLen = mel.length * b;
-      setTimeout(() => tick(t + loopLen), (loopLen - 0.1) * 1000);
-    }
-    tick(ac.currentTime + 0.2);
-  } catch(e) {}
-}
 function stopVenueBgm() {
   if (!_venueBgm) return;
   _venueBgm.active = false;
