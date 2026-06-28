@@ -794,7 +794,6 @@ function assignVenueCards(onDone) {
   titleEl.textContent = '📍 장소 배치!';
   titleEl.classList.add('title-pop');
   titleEl.addEventListener('animationend', () => titleEl.classList.remove('title-pop'), { once: true });
-  startVenueBgm();
   const container = document.getElementById('teams-revealed');
   const cards = container.querySelectorAll('.team-chip');
   let delay = 500;
@@ -948,56 +947,29 @@ function applyMemberPick(memberId) {
 function removeManualMember(teamIdx, memberIdx) { manualTeams[teamIdx].members.splice(memberIdx, 1); renderManual(); }
 function pickManualVenue(teamIdx) { openVenuePicker(venue => { manualTeams[teamIdx].venue = venue; renderManual(); }); }
 let _comboPicker = null;
-let _comboPickerCombos = [];
-
-function _generateCombinations(remaining, count = 4) {
-  const combos = [];
-  const seen = new Set();
-  let tries = 0;
-  while (combos.length < count && tries < 600) {
-    tries++;
-    try {
-      const teams = generateTeams(remaining);
-      if (!teams) continue;
-      const key = teams.map(t =>
-        [...t].sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => m.id).join(',')
-      ).sort().join('|');
-      if (seen.has(key)) continue;
-      seen.add(key);
-      combos.push(teams);
-    } catch(e) { break; }
-  }
-  return combos;
-}
-
-function _renderComboPicker(combos) {
-  _comboPickerCombos = combos;
+function _renderSizeConfigs(remaining) {
+  const configs = getAllTeamSizeConfigs(remaining.length);
   const fixedCount = _comboPicker.fixedTeams.length;
   const container = document.getElementById('combo-pick-list');
-  container.innerHTML = combos.map((teams, ci) => {
-    const teamsHTML = teams.map((team, ti) => {
-      const names = team.map(m =>
-        `<span class="combo-name ${m.gender === 'male' ? 'male' : 'female'}">${esc(m.name)}</span>`
-      ).join('');
-      return `<div class="combo-team-row"><span class="combo-team-no">팀 ${fixedCount + ti + 1}</span>${names}</div>`;
-    }).join('');
-    return `<div class="combo-option">
-      <div class="combo-option-teams">${teamsHTML}</div>
-      <button class="btn btn-primary combo-select-btn" onclick="selectCombo(${ci})">이 조합 선택 →</button>
+  container.innerHTML = `
+    <p class="size-config-title">남은 ${remaining.length}명 팀 구성 선택</p>
+    <div class="size-config-cards">
+      ${configs.map(c => {
+        const parts = [];
+        if (c.threes > 0) parts.push(`3인 ${c.threes}팀`);
+        if (c.twos   > 0) parts.push(`2인 ${c.twos}팀`);
+        return `<button class="size-config-card" onclick="selectManualSizeConfig(${c.twos},${c.threes})">
+          <span class="size-config-label">${parts.join(' + ')}</span>
+          <span class="size-config-total">총 ${fixedCount + c.twos + c.threes}팀 · 탭해서 시작 →</span>
+        </button>`;
+      }).join('')}
     </div>`;
-  }).join('');
 }
 
-function regenCombos() {
-  if (!_comboPicker) return;
-  const combos = _generateCombinations(_comboPicker.remaining);
-  if (combos.length === 0) { toast('다른 조합이 없습니다.'); return; }
-  _renderComboPicker(combos);
-}
-
-function selectCombo(idx) {
-  const { fixedTeams, activeVenuesBase } = _comboPicker;
-  const selectedTeams = _comboPickerCombos[idx];
+function selectManualSizeConfig(twos, threes) {
+  const { fixedTeams, remaining, activeVenuesBase } = _comboPicker;
+  const selectedTeams = generateTeamsWithConfig(remaining, twos, threes);
+  if (!selectedTeams) { toast('유효한 팀을 구성할 수 없습니다.\n인원 구성을 확인해 주세요.'); return; }
   const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
   const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
   const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
@@ -1058,10 +1030,10 @@ function finalizeManual() {
     return;
   }
 
-  const combos = _generateCombinations(remaining);
-  if (combos.length === 0) { toast('유효한 팀을 구성할 수 없습니다.\n인원 구성을 확인해 주세요.'); return; }
+  const configs = getAllTeamSizeConfigs(remaining.length);
+  if (configs.length === 0) { toast('유효한 팀을 구성할 수 없습니다.\n인원 구성을 확인해 주세요.'); return; }
   _comboPicker = { fixedTeams, remaining, activeVenuesBase };
-  _renderComboPicker(combos);
+  _renderSizeConfigs(remaining);
   showPage('page-combo-pick');
 }
 // ============================================================
