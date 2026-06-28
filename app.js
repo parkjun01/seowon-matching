@@ -617,7 +617,46 @@ function stopBgm() {
   _bgmPlaying = false;
 }
 let _venueBgm = null;
-function startVenueBgm() {}
+function startVenueBgm() {
+  if (_venueBgm) return;
+  try {
+    const ac = _ac(); if (!ac) return;
+    if (ac.state === 'suspended') ac.resume();
+    const master = ac.createGain();
+    master.gain.setValueAtTime(0, ac.currentTime);
+    master.gain.linearRampToValueAtTime(0.9, ac.currentTime + 0.4);
+    master.connect(ac.destination);
+    _venueBgm = { master, active: true };
+    const melody = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+    const bass   = [130.81, 0,      196.00, 0,      196.00, 0     ];
+    const step = 0.18;
+    function tick(t) {
+      if (!_venueBgm?.active) return;
+      melody.forEach((freq, i) => {
+        const noteT = t + i * step;
+        const mo = ac.createOscillator(), mg = ac.createGain();
+        mo.type = 'triangle'; mo.frequency.value = freq;
+        mg.gain.setValueAtTime(0.0001, noteT);
+        mg.gain.linearRampToValueAtTime(0.14, noteT + 0.02);
+        mg.gain.exponentialRampToValueAtTime(0.001, noteT + step * 0.82);
+        mo.connect(mg); mg.connect(master);
+        mo.start(noteT); mo.stop(noteT + step);
+        if (bass[i]) {
+          const bo = ac.createOscillator(), bg = ac.createGain();
+          bo.type = 'sine'; bo.frequency.value = bass[i];
+          bg.gain.setValueAtTime(0.0001, noteT);
+          bg.gain.linearRampToValueAtTime(0.11, noteT + 0.02);
+          bg.gain.exponentialRampToValueAtTime(0.001, noteT + step * 0.65);
+          bo.connect(bg); bg.connect(master);
+          bo.start(noteT); bo.stop(noteT + step);
+        }
+      });
+      const loopLen = melody.length * step;
+      setTimeout(() => tick(t + loopLen), (loopLen - 0.1) * 1000);
+    }
+    tick(ac.currentTime + 0.1);
+  } catch(e) {}
+}
 
 function stopVenueBgm() {
   if (!_venueBgm) return;
@@ -646,7 +685,7 @@ function animateNext() {
     });
     return;
   }
-  const { members: team, venue, skipSlot } = aniTeams[aniIndex];
+  const { members: team, venue } = aniTeams[aniIndex];
   const teamNo = aniIndex + 1 + _aniOffset;
   const titleEl = document.getElementById('matching-title');
   titleEl.classList.remove('title-pop'); void titleEl.offsetWidth;
@@ -654,20 +693,6 @@ function animateNext() {
   titleEl.classList.add('title-pop');
   titleEl.addEventListener('animationend', () => titleEl.classList.remove('title-pop'), { once: true });
 
-  if (skipSlot) {
-    // 수동 배정 팀: 슬롯 없이 바로 카드 표시
-    document.getElementById('slot-area').innerHTML = '';
-    flashScreen();
-    setTimeout(() => {
-      if (aniCancelled) return;
-      revealTeam({ members: team, venue }, teamNo);
-      aniIndex++;
-      setTimeout(animateNext, 900);
-    }, 200);
-    return;
-  }
-
-  startBgm();
   const allNames = getPool().map(m => m.name);
   buildSlotUI(team, allNames, () => {
     if (aniCancelled) { stopBgm(); return; }
@@ -957,16 +982,11 @@ function finalizeManual() {
   _manualCount = fixedTeams.length;
   matchResult = [...fixedResults, ...randomResults];
 
-  // 직접 배정 팀(skipSlot) + 랜덤 팀(슬롯 애니메이션) 모두 aniTeams에 포함
-  aniTeams = [
-    ...fixedResults.map(r => ({ ...r, skipSlot: true })),
-    ...randomResults,
-  ];
+  aniTeams = matchResult;
   aniIndex = 0; aniCancelled = false; _aniOffset = 0;
   document.getElementById('teams-revealed').innerHTML = '';
   document.getElementById('slot-area').innerHTML = '';
-  document.getElementById('matching-title').textContent =
-    randomResults.length > 0 ? '🎯 매칭 중...' : '🎯 팀 확인';
+  document.getElementById('matching-title').textContent = '🎯 매칭 중...';
   showPage('page-matching');
   setTimeout(animateNext, 800);
 }
