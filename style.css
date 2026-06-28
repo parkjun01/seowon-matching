@@ -336,3 +336,14 @@ body {
   color: rgba(125,211,252,.7);
   background: rgba(255,255,255,.04);
 }
+
+/* ── 나머지 조합 선택 ── */
+.combo-pick-list { display: flex; flex-direction: column; gap: 14px; padding: 0 4px; }
+.combo-option { background: var(--surface); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+.combo-option-teams { display: flex; flex-direction: column; gap: 8px; }
+.combo-team-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.combo-team-no { font-size: 12px; font-weight: 700; color: var(--primary); min-width: 44px; flex-shrink: 0; }
+.combo-name { font-size: 13px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.combo-name.male { background: rgba(14,165,233,.12); color: var(--primary); }
+.combo-name.female { background: rgba(239,68,68,.10); color: #ef4444; }
+.combo-select-btn { align-self: flex-end; margin-top: 4px; }

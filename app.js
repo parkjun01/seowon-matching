@@ -947,6 +947,81 @@ function applyMemberPick(memberId) {
 }
 function removeManualMember(teamIdx, memberIdx) { manualTeams[teamIdx].members.splice(memberIdx, 1); renderManual(); }
 function pickManualVenue(teamIdx) { openVenuePicker(venue => { manualTeams[teamIdx].venue = venue; renderManual(); }); }
+let _comboPicker = null;
+let _comboPickerCombos = [];
+
+function _generateCombinations(remaining, count = 4) {
+  const combos = [];
+  const seen = new Set();
+  let tries = 0;
+  while (combos.length < count && tries < 600) {
+    tries++;
+    try {
+      const teams = generateTeams(remaining);
+      if (!teams) continue;
+      const key = teams.map(t =>
+        [...t].sort((a, b) => (a.id < b.id ? -1 : 1)).map(m => m.id).join(',')
+      ).sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      combos.push(teams);
+    } catch(e) { break; }
+  }
+  return combos;
+}
+
+function _renderComboPicker(combos) {
+  _comboPickerCombos = combos;
+  const fixedCount = _comboPicker.fixedTeams.length;
+  const container = document.getElementById('combo-pick-list');
+  container.innerHTML = combos.map((teams, ci) => {
+    const teamsHTML = teams.map((team, ti) => {
+      const names = team.map(m =>
+        `<span class="combo-name ${m.gender === 'male' ? 'male' : 'female'}">${esc(m.name)}</span>`
+      ).join('');
+      return `<div class="combo-team-row"><span class="combo-team-no">팀 ${fixedCount + ti + 1}</span>${names}</div>`;
+    }).join('');
+    return `<div class="combo-option">
+      <div class="combo-option-teams">${teamsHTML}</div>
+      <button class="btn btn-primary combo-select-btn" onclick="selectCombo(${ci})">이 조합 선택 →</button>
+    </div>`;
+  }).join('');
+}
+
+function regenCombos() {
+  if (!_comboPicker) return;
+  const combos = _generateCombinations(_comboPicker.remaining);
+  if (combos.length === 0) { toast('다른 조합이 없습니다.'); return; }
+  _renderComboPicker(combos);
+}
+
+function selectCombo(idx) {
+  const { fixedTeams, activeVenuesBase } = _comboPicker;
+  const selectedTeams = _comboPickerCombos[idx];
+  const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
+  const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
+  const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
+  const venuesForAuto = activeVenuesBase.filter(v => !usedVenueIds.has(v.id));
+  const teamsNeedingVenue = [...fixedWithoutVenue.map(t => t.members), ...selectedTeams];
+  const autoResults = teamsNeedingVenue.length > 0 ? assignVenues(teamsNeedingVenue, venuesForAuto) : [];
+  const fixedVenueResults = autoResults.slice(0, fixedWithoutVenue.length);
+  const randomResults     = autoResults.slice(fixedWithoutVenue.length);
+  let vIdx = 0;
+  const fixedResults = fixedTeams.map(t =>
+    t.venue !== null ? { members: t.members, venue: t.venue } : fixedVenueResults[vIdx++]
+  );
+  _manualCount = fixedTeams.length;
+  matchResult = [...fixedResults, ...randomResults];
+  aniTeams = matchResult;
+  aniIndex = 0; aniCancelled = false; _aniOffset = 0;
+  _comboPicker = null;
+  document.getElementById('teams-revealed').innerHTML = '';
+  document.getElementById('slot-area').innerHTML = '';
+  document.getElementById('matching-title').textContent = '🎯 매칭 중...';
+  showPage('page-matching');
+  setTimeout(animateNext, 800);
+}
+
 function finalizeManual() {
   _initAC();
   const fixedTeams = manualTeams.filter(t => t.members.length > 0);
@@ -957,38 +1032,37 @@ function finalizeManual() {
   const remaining = pool.filter(m => !assigned.has(m.id));
   if (remaining.length === 1) { toast('나머지 1명은 팀을 구성할 수 없습니다. 기존 팀에 추가해주세요.'); return; }
 
-  let randomTeams = [];
-  if (remaining.length >= 2) {
-    try { randomTeams = generateTeams(remaining); }
-    catch(e) { toast(e.message); return; }
+  const activeVenuesBase = db.venues.filter(v => !sessionHiddenVenues.has(v.id));
+
+  if (remaining.length === 0) {
+    // 모두 수동 배정 → 장소 자동 배분 후 바로 애니메이션
+    const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
+    const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
+    const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
+    const venuesForAuto = activeVenuesBase.filter(v => !usedVenueIds.has(v.id));
+    const autoResults = fixedWithoutVenue.length > 0
+      ? assignVenues(fixedWithoutVenue.map(t => t.members), venuesForAuto) : [];
+    let vIdx = 0;
+    const fixedResults = fixedTeams.map(t =>
+      t.venue !== null ? { members: t.members, venue: t.venue } : autoResults[vIdx++]
+    );
+    _manualCount = fixedTeams.length;
+    matchResult = fixedResults;
+    aniTeams = matchResult;
+    aniIndex = 0; aniCancelled = false; _aniOffset = 0;
+    document.getElementById('teams-revealed').innerHTML = '';
+    document.getElementById('slot-area').innerHTML = '';
+    document.getElementById('matching-title').textContent = '🎯 매칭 중...';
+    showPage('page-matching');
+    setTimeout(animateNext, 800);
+    return;
   }
 
-  // 장소: 이미 지정한 장소는 유지, 미지정 팀은 랜덤 팀과 함께 자동 배분
-  const fixedWithVenue    = fixedTeams.filter(t => t.venue !== null);
-  const fixedWithoutVenue = fixedTeams.filter(t => t.venue === null);
-  const usedVenueIds = new Set(fixedWithVenue.map(t => t.venue.id));
-  const activeVenues = db.venues.filter(v => !sessionHiddenVenues.has(v.id) && !usedVenueIds.has(v.id));
-  const teamsNeedingVenue = [...fixedWithoutVenue.map(t => t.members), ...randomTeams];
-  const autoResults = teamsNeedingVenue.length > 0 ? assignVenues(teamsNeedingVenue, activeVenues) : [];
-  const fixedVenueResults = autoResults.slice(0, fixedWithoutVenue.length);
-  const randomResults     = autoResults.slice(fixedWithoutVenue.length);
-
-  // 원래 팀 순서 유지하면서 자동 배정 장소 합치기
-  let vIdx = 0;
-  const fixedResults = fixedTeams.map(t =>
-    t.venue !== null ? { members: t.members, venue: t.venue } : fixedVenueResults[vIdx++]
-  );
-
-  _manualCount = fixedTeams.length;
-  matchResult = [...fixedResults, ...randomResults];
-
-  aniTeams = matchResult;
-  aniIndex = 0; aniCancelled = false; _aniOffset = 0;
-  document.getElementById('teams-revealed').innerHTML = '';
-  document.getElementById('slot-area').innerHTML = '';
-  document.getElementById('matching-title').textContent = '🎯 매칭 중...';
-  showPage('page-matching');
-  setTimeout(animateNext, 800);
+  const combos = _generateCombinations(remaining);
+  if (combos.length === 0) { toast('유효한 팀을 구성할 수 없습니다.\n인원 구성을 확인해 주세요.'); return; }
+  _comboPicker = { fixedTeams, remaining, activeVenuesBase };
+  _renderComboPicker(combos);
+  showPage('page-combo-pick');
 }
 // ============================================================
 // 멤버 모달
